@@ -1,0 +1,9 @@
+# generated outputs (root only — keep samples/ committed)
+/token_wrapped.*
+/token_dashboard.*
+/merged_usage.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
