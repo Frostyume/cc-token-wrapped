@@ -21,12 +21,19 @@ Resolve `--start` / `--end` (`YYYY-MM-DD`) relative to **today**:
 - "5-14 to 6-24" → explicit start/end
 Use the current year when unspecified. Ask if genuinely ambiguous.
 
-### 2. Pick language & style
+### 2. Pick language, style & size
 - `--lang en|zh` (default `en`). Numbers and copy adapt (B/M vs 亿).
-- Presets `--style`: `cyber_purple` (default) · `neon_night` · `blue_gold` · `cyber_green` · `minimal_white`.
+- Presets `--style`: `cyber_purple` (default) · `neon_night` · `blue_gold` ·
+  `cyber_green` · `minimal_white` · `sunset` · `graphite` · `sakura`.
+- `--size poster|story|square` (default `poster`): `poster` = portrait 9:12.5,
+  `story` = 9:16 for Instagram/WeChat stories, `square` = 1:1 for feeds.
+- A theme file: `--style NAME` also resolves `NAME.json` under
+  `~/.claude/token-wrapped-themes/` or the skill's `themes/` dir
+  (keys: `bg` list, `accent`, `bars`, `text`, optional `glows`).
 - Free-form color description → `--style custom` and translate it to hex:
   `--bg "#bottom,#mid,#top" --accent "#c" --bars "#c" --text light|dark`
   (light backgrounds MUST use `--text dark`).
+- `--font "Font Name"` forces a font family (useful for brand fonts / CJK).
 - Fun comparisons (lattes / novels / reading-hours) are on by default; add `--no-fun`
   for a professional version. `--coffee-price 5.0` tunes the latte comparison.
 
@@ -39,7 +46,8 @@ SKILL="$HOME/.claude/skills/token-wrapped"
 PY=python3   # any interpreter with matplotlib
 
 $PY "$SKILL/collect.py" --start 2026-06-18 --end 2026-06-24 --out merged_usage.json
-$PY "$SKILL/render.py"  --data merged_usage.json --lang en --style cyber_purple --out-dir .
+$PY "$SKILL/render.py"  --data merged_usage.json --lang en --style cyber_purple \
+                        --size poster --out-dir .
 ```
 
 - `collect.py` merges this machine + `--extra-dir`, clips to the range, writes
