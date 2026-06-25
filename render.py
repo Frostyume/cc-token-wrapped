@@ -104,6 +104,18 @@ STR = {
         "read_h": "{v} hours", "read_d": "{v} days", "read_y": "{v} years",
         "sub": "{t}  ·  {d} {dw} with Claude",
         "powered": "Powered by Claude Code",
+        "tag_min": "CLAUDE CODE · TOKEN REPORT", "min_top": "top model",
+        "arch": {"marathon": "The Marathoner", "weekend": "The Weekend Warrior",
+                 "sprinter": "The Sprinter", "steady": "The Steady Builder",
+                 "explorer": "The Explorer"},
+        "report": "TOKEN USAGE REPORT", "kpi_spent": "Total spent",
+        "kpi_tokens": "Total tokens", "kpi_days": "Active days", "kpi_top": "Top model",
+        "tbl_model": "Model", "tbl_cost": "Cost", "tbl_share": "Share",
+        "biz_cum": "Cumulative spend", "prompt": "ccusage --wrapped",
+        "t_total": "total", "t_spent": "spent", "t_days": "days", "t_top": "top",
+        "t_cache": "cache", "t_out": "output", "you_are": "you are",
+        "receipt": "TOKEN RECEIPT", "r_thanks": "THANK YOU FOR VIBE CODING",
+        "r_item": "ITEM", "r_amt": "AMOUNT",
         "d_title": "My Token Usage", "d_daily": "tokens / day",
         "d_cumcost": "cumulative cost", "d_cost_model": "Daily cost by model",
         "d_share": "Cost share by model", "d_total": "total cost ($)",
@@ -127,6 +139,18 @@ STR = {
         "read_h": "{v} 小时", "read_d": "{v} 天", "read_y": "{v} 年",
         "sub": "{t}  ·  {d} {dw}和 Claude 相伴",
         "powered": "Powered by Claude Code",
+        "tag_min": "CLAUDE CODE · 用量报告", "min_top": "头号模型",
+        "arch": {"marathon": "马拉松选手", "weekend": "周末战士",
+                 "sprinter": "短跑冲刺型", "steady": "稳健建造者",
+                 "explorer": "探索者"},
+        "report": "TOKEN 用量报告", "kpi_spent": "总花费",
+        "kpi_tokens": "总 token", "kpi_days": "活跃天数", "kpi_top": "头号模型",
+        "tbl_model": "模型", "tbl_cost": "成本", "tbl_share": "占比",
+        "biz_cum": "累计花费", "prompt": "ccusage --wrapped",
+        "t_total": "总计", "t_spent": "花费", "t_days": "天数", "t_top": "头号",
+        "t_cache": "缓存", "t_out": "输出", "you_are": "你是",
+        "receipt": "TOKEN 小票", "r_thanks": "感谢使用 CLAUDE CODE",
+        "r_item": "项目", "r_amt": "金额",
         "d_title": "我的 Token 用量报告", "d_daily": "每日 token",
         "d_cumcost": "累计成本", "d_cost_model": "每日成本 · 按模型",
         "d_share": "成本占比 · 按模型", "d_total": "总成本 ($)",
@@ -247,6 +271,481 @@ def model_costs(daily):
 
 def short_model(name):
     return name.replace("claude-", "").replace("-latest", "")
+
+
+def derive(data, coffee_price):
+    """All numbers a template might want, computed once."""
+    daily, tot, rng = data["daily"], data["totals"], data["range"]
+    TOTAL, COST, NDAYS = tot["totalTokens"], tot["totalCost"], max(rng["days"], 1)
+    peak = max(daily, key=lambda r: r["totalTokens"])
+    words = TOTAL * WORDS_PER_TOKEN
+    mc = model_costs(daily)
+    active = sum(1 for r in daily if r["totalTokens"] > 0)
+    wd_tok = defaultdict(float)
+    for r in daily:
+        wd_tok[date.fromisoformat(r["date"]).weekday()] += r["totalTokens"]
+    weekend = sum(v for k, v in wd_tok.items() if k >= 5)
+    return dict(daily=daily, tot=tot, rng=rng, TOTAL=TOTAL, COST=COST, NDAYS=NDAYS,
+                peak=peak, avg=TOTAL / NDAYS, words=words, novels=words / WORDS_PER_NOVEL,
+                read_hours=words / READING_WPM / 60,
+                coffees=(COST / coffee_price if coffee_price > 0 else 0),
+                mc=mc, top=list(mc.items())[:3], toks=[r["totalTokens"] for r in daily],
+                active=active, streak=_streak(daily),
+                busy_wd=(max(wd_tok, key=wd_tok.get) if wd_tok else 0),
+                weekend_share=(weekend / TOTAL if TOTAL else 0))
+
+
+def archetype(m, S):
+    """A light 'developer archetype' derived only from daily-grain signals."""
+    a = S["arch"]
+    if m["streak"] >= 7:
+        return a["marathon"]
+    if m["weekend_share"] >= 0.45:
+        return a["weekend"]
+    if m["peak"]["totalTokens"] >= 3 * m["avg"]:
+        return a["sprinter"]
+    if m["active"] >= 0.8 * m["NDAYS"]:
+        return a["steady"]
+    return a["explorer"]
+
+
+def _sparkline(ax, toks, x0, x1, y0, y1, color, lw=2.2, dot=True):
+    """Draw a thin sparkline in axes-fraction coords (ax is a 0..1 canvas)."""
+    n = len(toks); mx = max(toks) if toks else 1
+    xs = np.linspace(x0, x1, n) if n > 1 else np.array([(x0 + x1) / 2])
+    ys = [y0 + (t / mx) * (y1 - y0) if mx > 0 else y0 for t in toks]
+    ax.plot(xs, ys, color=color, lw=lw, solid_capstyle="round", zorder=5)
+    if dot and n:
+        i = int(np.argmax(toks))
+        ax.scatter([xs[i]], [ys[i]], s=42, color=color, zorder=6, edgecolors="none")
+
+
+# ---- template: minimal (editorial / Swiss) -------------------------------
+def tpl_minimal(data, st, S, lang, L, m, title, subtitle, fun, out):
+    dark = st["text"] == "dark"
+    INK = "#15131F" if dark else "#F4F2FA"
+    DIM = "#7B7690" if dark else "#A9A4C0"
+    HAIR = "#15131F26" if dark else "#FFFFFF33"
+    ACC = st["accent"]
+    fig = plt.figure(figsize=L["figsize"], dpi=120)
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ax.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor=st["bg"][0], zorder=0))
+    ML, MR = 0.12, 0.88
+
+    def T(x, y, s, size, color=INK, w="normal", ha="left", a=1.0, ls=0.0):
+        t = ax.text(x, y, s, fontsize=size, color=color, weight=w, ha=ha, va="center",
+                    zorder=5, alpha=a)
+        if ls: t.set_fontproperties(t.get_fontproperties());
+        return t
+
+    def rule(y):
+        ax.plot([ML, MR], [y, y], color=HAIR, lw=1.3, zorder=2)
+
+    T(ML, 0.93, S["tag_min"], 14.5, ACC, w="bold")
+    T(MR, 0.93, f"{m['rng']['start']} → {m['rng']['end']}", 13, DIM, ha="right")
+    rule(0.908)
+
+    big, unit = hero(m["TOTAL"], lang)
+    T(ML, 0.78, big, 116, INK, w="normal")
+    T(ML, 0.672, unit, 22, DIM, w="normal")
+    T(ML, 0.628, f"{m['TOTAL']:,}", 15, DIM, w="normal")
+
+    rule(0.555)
+    cols = [(f"${m['COST']:,.0f}", S["cost"], 30),
+            (str(m["NDAYS"]), S["d_active"], 30),
+            (short_model(m["top"][0][0]) if m["top"] else "—", S["min_top"], 25)]
+    xs = [ML, 0.40, 0.64]
+    for (val, lab, fs), x in zip(cols, xs):
+        T(x, 0.50, val, fs, INK, w="bold")
+        T(x, 0.452, lab, 13, DIM)
+    rule(0.408)
+
+    _sparkline(ax, m["toks"], ML, MR, 0.27, 0.36, ACC, lw=2.4)
+    T(ML, 0.235, S["rhythm"], 12.5, DIM)
+
+    rule(0.085)
+    T(ML, 0.055, S["powered"], 12.5, DIM)
+    T(MR, 0.055, "claude.com/claude-code", 12, DIM, ha="right")
+
+    fig.savefig(f"{out}.png", dpi=200, facecolor=st["bg"][0])
+    fig.savefig(f"{out}.pdf", facecolor=st["bg"][0])
+    plt.close(fig)
+    print(f"poster[minimal] -> {out}.png")
+
+
+def _stub(name):
+    def f(data, st, S, lang, L, m, title, subtitle, fun, out):
+        print(f"[todo] template '{name}' not implemented yet")
+    return f
+
+
+def _lum(c):
+    r, g, b = mcolors.to_rgb(c)
+    return 0.299 * r + 0.587 * g + 0.114 * b
+
+
+# ---- template: business (exec one-pager) ---------------------------------
+def tpl_business(data, st, S, lang, L, m, title, subtitle, fun, out):
+    dark = st["text"] == "light"  # dark-background style → dark report paper
+    PAPER = "#14161C" if dark else "#FFFFFF"
+    PANEL = "#1E222B" if dark else "#F6F7FB"
+    INK = "#EEF1F7" if dark else "#1B1E27"
+    DIM = "#9AA3B2" if dark else "#6B7280"
+    BORDER = "#2C313C" if dark else "#E3E6EF"
+    ACC = st["accent"]
+    ON_ACC = "#0B0B10" if _lum(ACC) > 0.6 else "#FFFFFF"
+    fig = plt.figure(figsize=L["figsize"], dpi=120)
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ax.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor=PAPER, zorder=0))
+    ML, MR = 0.08, 0.92
+
+    def T(x, y, s, size, color=INK, w="normal", ha="left", a=1.0):
+        ax.text(x, y, s, fontsize=size, color=color, weight=w, ha=ha, va="center",
+                zorder=6, alpha=a)
+
+    # header bar
+    ax.add_patch(FancyBboxPatch((ML, 0.905), MR - ML, 0.072,
+                 boxstyle="round,pad=0,rounding_size=0.01", linewidth=0,
+                 facecolor=ACC, zorder=3))
+    T(ML + 0.025, 0.941, title, 23, ON_ACC, w="bold")
+    T(MR - 0.025, 0.941, f"{m['rng']['start']} → {m['rng']['end']}", 13.5, ON_ACC,
+      ha="right", a=0.9)
+    T(ML, 0.862, S["report"], 13, DIM, w="bold")
+
+    # KPI cards
+    kpis = [(fmt_tok(m["TOTAL"]), S["kpi_tokens"]), (f"${m['COST']:,.0f}", S["kpi_spent"]),
+            (str(m["NDAYS"]), S["kpi_days"]),
+            (f"{(m['top'][0][1]/(m['COST'] or 1)*100):.0f}%", S["kpi_top"])]
+    cw, gap = 0.198, 0.012
+    x0 = ML
+    for i, (val, lab) in enumerate(kpis):
+        cx = x0 + i * (cw + gap)
+        ax.add_patch(FancyBboxPatch((cx, 0.745), cw, 0.085,
+                     boxstyle="round,pad=0,rounding_size=0.012", linewidth=1.2,
+                     edgecolor=BORDER, facecolor=PANEL, zorder=3))
+        T(cx + 0.018, 0.806, val, 24, INK, w="bold")
+        T(cx + 0.018, 0.766, lab, 11.5, DIM)
+
+    # cumulative spend chart (real axes)
+    T(ML, 0.70, S["biz_cum"], 14, INK, w="bold")
+    cax = fig.add_axes([0.085, 0.435, 0.835, 0.235])
+    cum, s = [], 0.0
+    for r in m["daily"]: s += r["totalCost"]; cum.append(s)
+    xx = range(len(cum))
+    cax.fill_between(xx, cum, color=ACC, alpha=0.14, zorder=2)
+    cax.plot(xx, cum, color=ACC, lw=2.6, zorder=3)
+    cax.set_facecolor(PAPER)
+    for sp in ["top", "right"]: cax.spines[sp].set_visible(False)
+    for sp in ["left", "bottom"]: cax.spines[sp].set_color(BORDER)
+    cax.tick_params(colors=DIM, labelsize=9)
+    cax.set_ylim(bottom=0); cax.margins(x=0)
+    cax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:,.0f}"))
+    n = len(m["daily"]); step = max(1, n // 6)
+    cax.set_xticks(list(xx)[::step])
+    cax.set_xticklabels([m["daily"][i]["date"][5:] for i in list(xx)[::step]],
+                        fontsize=8.5, color=DIM)
+    cax.grid(axis="y", color=BORDER, lw=0.8, alpha=0.6)
+
+    # model table
+    ty = 0.355
+    T(ML, ty, S["tbl_model"], 12.5, DIM, w="bold")
+    T(0.56, ty, S["tbl_cost"], 12.5, DIM, w="bold", ha="right")
+    T(0.66, ty, S["tbl_share"], 12.5, DIM, w="bold")
+    ax.plot([ML, MR], [ty - 0.018, ty - 0.018], color=BORDER, lw=1.2, zorder=4)
+    tc = m["COST"] or 1
+    bx0, bx1 = 0.66, 0.855
+    for i, (name, c) in enumerate(list(m["mc"].items())[:5]):
+        ry = ty - 0.045 - i * 0.046
+        T(ML, ry, short_model(name), 14, INK, w="bold")
+        T(0.56, ry, f"${c:,.0f}", 14, INK, ha="right")
+        share = c / tc
+        ax.add_patch(FancyBboxPatch((bx0, ry - 0.011), (bx1 - bx0) * share, 0.022,
+                     boxstyle="round,pad=0,rounding_size=0.004", linewidth=0,
+                     facecolor=ACC, alpha=0.85, zorder=4))
+        T(bx1, ry, f"{share*100:.0f}%", 12, DIM, ha="right")
+
+    ax.plot([ML, MR], [0.072, 0.072], color=BORDER, lw=1.2)
+    T(ML, 0.045, S["powered"], 12, DIM)
+    T(MR, 0.045, "claude.com/claude-code", 11.5, DIM, ha="right")
+
+    fig.savefig(f"{out}.png", dpi=200, facecolor=PAPER)
+    fig.savefig(f"{out}.pdf", facecolor=PAPER)
+    plt.close(fig)
+    print(f"poster[business] -> {out}.png")
+
+
+ARCH_SYM = {"marathon": "⚡", "weekend": "★", "sprinter": "▲",
+            "steady": "◆", "explorer": "✦"}
+_BLOCKS = "▁▂▃▄▅▆▇█"
+
+
+def _ascii_spark(toks):
+    mx = max(toks) if toks else 1
+    return "".join(_BLOCKS[min(7, int((t / mx) * 7.99)) if mx > 0 else 0] for t in toks)
+
+
+# ---- template: terminal (CRT readout) ------------------------------------
+def tpl_terminal(data, st, S, lang, L, m, title, subtitle, fun, out):
+    BG = "#05080B"
+    PH = st["bars"]                       # phosphor (readout) colour
+    ACC = st["accent"]
+    DIM = mcolors.to_hex(np.array(mcolors.to_rgb(PH)) * 0.55 + 0.0)
+    MONO = "monospace" if lang == "en" else None
+    fig = plt.figure(figsize=L["figsize"], dpi=120)
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ax.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor=BG, zorder=0))
+    # scanlines
+    for yy in np.arange(0, 1, 0.0065):
+        ax.plot([0, 1], [yy, yy], color="#FFFFFF", lw=0.6, alpha=0.025, zorder=1)
+    # window frame
+    fx, fw = 0.06, 0.88
+    ax.add_patch(FancyBboxPatch((fx, 0.06), fw, 0.88,
+                 boxstyle="round,pad=0,rounding_size=0.012", linewidth=1.6,
+                 edgecolor=PH, facecolor="#0A0E12", zorder=2))
+    ax.plot([fx, fx + fw], [0.892, 0.892], color=PH, lw=1.4, zorder=3)
+    for i, cdot in enumerate(["#FF5F56", "#FFBD2E", "#27C93F"]):
+        ax.scatter([fx + 0.03 + i * 0.028], [0.915], s=120, color=cdot, zorder=4,
+                   edgecolors="none")
+    ax.text(0.5, 0.915, S["prompt"], fontsize=13, color=DIM, ha="center", va="center",
+            family=MONO, zorder=4)
+
+    ML = fx + 0.04
+    T = lambda x, y, s, sz, c=PH, ha="left", w="normal": ax.text(
+        x, y, s, fontsize=sz, color=c, ha=ha, va="center", family=MONO, weight=w, zorder=5)
+
+    T(ML, 0.852, f"$ claude-code stats {m['rng']['start']}..{m['rng']['end']}", 12.5, DIM)
+    big, unit = hero(m["TOTAL"], lang)
+    T(ML, 0.775, big, 62, PH, w="bold")
+    T(ML, 0.705, f"// {unit.lower()}", 15, ACC)
+
+    def row(y, label, value):
+        dots = "." * max(3, 17 - len(label))
+        T(ML, y, f"> {label} {dots}", 15, DIM)
+        T(fx + fw - 0.04, y, value, 15, PH, ha="right", w="bold")
+
+    crp = m["tot"]["cacheReadTokens"] / m["TOTAL"] * 100 if m["TOTAL"] else 0
+    rows = [(S["t_spent"], f"${m['COST']:,.0f}"),
+            (S["t_days"], str(m["NDAYS"])),
+            (S["t_top"], f"{short_model(m['top'][0][0])} ({m['top'][0][1]/(m['COST'] or 1)*100:.0f}%)"),
+            (S["t_out"], fmt_tok(m["tot"]["outputTokens"])),
+            (S["t_cache"], f"{fmt_tok(m['tot']['cacheReadTokens'])} ({crp:.0f}%)")]
+    y = 0.635
+    for lab, val in rows:
+        row(y, lab, val); y -= 0.05
+
+    # ascii sparkline of daily tokens (wrap to fit)
+    spark = _ascii_spark(m["toks"])
+    T(ML, 0.345, "daily:", 13, DIM)
+    T(ML, 0.305, spark, 15, PH)
+    # ascii activity heatmap (last 7x cols)
+    by = {r["date"]: r["totalTokens"] for r in m["daily"]}
+    vmax = max(by.values()) if by else 1
+    shades = " ░▒▓█"
+    T(ML, 0.255, "activity:", 13, DIM)
+    d0 = date.fromisoformat(m["daily"][0]["date"])
+    start = date.fromordinal(d0.toordinal() - d0.weekday())
+    d1 = date.fromisoformat(m["daily"][-1]["date"])
+    ncols = (d1.toordinal() - start.toordinal()) // 7 + 1
+    for wd in range(7):
+        line = ""
+        for c in range(ncols):
+            o = start.toordinal() + c * 7 + wd
+            v = by.get(date.fromordinal(o).isoformat())
+            line += "·" if v is None else shades[min(4, int((v / vmax) * 4.99)) if vmax else 0]
+        T(ML + 0.10, 0.225 - wd * 0.018, line, 12, ACC)
+        T(ML, 0.225 - wd * 0.018, S["wd"][wd][:3] if lang == "en" else S["wd"][wd],
+          10, DIM)
+
+    if fun:
+        nv, rd = fmt_count(m["novels"]), reading_human(m["read_hours"], S)
+        msg = (f"# {nv} novels · {rd} of reading" if lang == "en"
+               else f"# {nv} 本小说 · 阅读 {rd}")
+        T(ML, 0.085, msg, 12.5, DIM)
+    T(ML, 0.05, "> _", 16, PH, w="bold")
+
+    fig.savefig(f"{out}.png", dpi=200, facecolor=BG)
+    fig.savefig(f"{out}.pdf", facecolor=BG)
+    plt.close(fig)
+    print(f"poster[terminal] -> {out}.png")
+
+
+# ---- template: playful (sticker / fun) -----------------------------------
+def tpl_playful(data, st, S, lang, L, m, title, subtitle, fun, out):
+    dark = st["text"] == "dark"
+    INK = "#1A1330" if dark else "#FFFFFF"
+    DIM = "#4A4460" if dark else "#FFFFFFCC"
+    ACC = st["accent"]
+    ON_ACC = "#0B0B10" if _lum(ACC) > 0.6 else "#FFFFFF"
+    confetti_cols = [ACC, st["bars"]] + [g[0] for g in st["glows"]]
+    fig = plt.figure(figsize=L["figsize"], dpi=120)
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ax.imshow(gradient_img(st["bg"]), extent=[0, 1, 0, 1], aspect="auto",
+              origin="lower", zorder=0)
+
+    # confetti (deterministic pseudo-random, kept out of the central column)
+    for i in range(54):
+        x = (np.sin((i + 1) * 12.9898) * 43758.5453) % 1
+        y = (np.sin((i + 1) * 78.233) * 43758.5453) % 1
+        if 0.2 < x < 0.8 and 0.18 < y < 0.92:
+            continue
+        ax.scatter([x], [y], s=[60, 120, 200][i % 3], marker=["o", "s", "^"][i % 3],
+                   color=confetti_cols[i % len(confetti_cols)], alpha=0.55,
+                   zorder=1, edgecolors="none")
+
+    def T(x, y, s, size, color=INK, w="bold", ha="center", a=1.0):
+        ax.text(x, y, s, fontsize=size, color=color, weight=w, ha=ha, va="center",
+                zorder=6, alpha=a)
+
+    T(0.5, 0.955, S["tag"], 16, ACC)
+
+    # archetype badge (chunky pill)
+    arch = archetype(m, S)
+    sym = ARCH_SYM[next(k for k, v in S["arch"].items() if v == arch)]
+    T(0.5, 0.905, S["you_are"], 13, DIM, w="normal")
+    bw = 0.62
+    ax.add_patch(FancyBboxPatch((0.5 - bw / 2, 0.838), bw, 0.052,
+                 boxstyle="round,pad=0.004,rounding_size=0.03", linewidth=0,
+                 facecolor=ACC, zorder=4))
+    T(0.5, 0.864, f"{sym}  {arch}", 24, ON_ACC)
+
+    big, unit = hero(m["TOTAL"], lang)
+    T(0.5, 0.715, big, 132, INK)
+    T(0.5, 0.60, f"{unit} !!", 26, ACC)
+    T(0.5, 0.555, subtitle, 16, DIM, w="normal")
+
+    # chunky stat chips (row of 3)
+    def chip(cx, big_s, small, sym):
+        w, h = 0.275, 0.135
+        ax.add_patch(FancyBboxPatch((cx - w / 2, 0.40), w, h,
+                     boxstyle="round,pad=0.006,rounding_size=0.04", linewidth=0,
+                     facecolor=INK if not dark else "#FFFFFF", alpha=0.12, zorder=3))
+        ax.add_patch(FancyBboxPatch((cx - w / 2, 0.40), w, h,
+                     boxstyle="round,pad=0.006,rounding_size=0.04", linewidth=2.4,
+                     edgecolor=ACC, facecolor="none", zorder=4))
+        T(cx, 0.515, sym, 30, ACC)
+        T(cx, 0.468, big_s, 25, INK)
+        T(cx, 0.425, small, 12.5, DIM, w="normal")
+    chip(0.235, f"${m['COST']:,.0f}", S["t_spent"], "☕")
+    chip(0.5, fmt_count(m["novels"]), "novels" if lang == "en" else "本小说", "◆")
+    chip(0.765, fmt_tok(m["peak"]["totalTokens"]), S["t_top"], "▲")
+
+    # chunky rounded bars
+    toks = np.array(m["toks"], float); n = len(toks)
+    mx = toks.max() if toks.size else 1
+    xs = np.linspace(0.13, 0.87, n) if n > 1 else np.array([0.5])
+    bw2 = min((0.74 / max(n, 1)) * 0.7, 0.05)
+    for xi, h in zip(xs, toks / mx if mx > 0 else toks):
+        ax.add_patch(FancyBboxPatch((xi - bw2 / 2, 0.255), bw2, max(h * 0.10, 0.004),
+                     boxstyle="round,pad=0,rounding_size=0.012", linewidth=0,
+                     facecolor=st["bars"], zorder=4))
+
+    # speech-bubble fun fact
+    if fun:
+        bx, by, bw3, bh3 = 0.16, 0.10, 0.68, 0.07
+        ax.add_patch(FancyBboxPatch((bx, by), bw3, bh3,
+                     boxstyle="round,pad=0.006,rounding_size=0.04", linewidth=0,
+                     facecolor=ACC, zorder=4))
+        ax.add_patch(plt.Polygon([[0.30, by], [0.36, by], [0.31, by - 0.028]],
+                     closed=True, facecolor=ACC, zorder=4, edgecolor="none"))
+        msg = (f'"read {reading_human(m["read_hours"], S)} straight!"' if lang == "en"
+               else f'"连续读了 {reading_human(m["read_hours"], S)}！"')
+        T(0.5, by + bh3 / 2, msg, 17, ON_ACC)
+
+    T(0.5, 0.04, S["powered"], 12.5, DIM, w="normal")
+
+    face = st["bg"][0]
+    fig.savefig(f"{out}.png", dpi=200, facecolor=face)
+    fig.savefig(f"{out}.pdf", facecolor=face)
+    plt.close(fig)
+    print(f"poster[playful] -> {out}.png")
+
+
+# ---- template: receipt (printed till receipt) ----------------------------
+def tpl_receipt(data, st, S, lang, L, m, title, subtitle, fun, out):
+    BG = "#26231F"
+    PAPER = "#F7F4EC"
+    INK = "#1C1A17"
+    DIM = "#6E6A62"
+    ACC = st["accent"]
+    if _lum(ACC) > 0.78:                  # keep the star readable on white paper
+        ACC = mcolors.to_hex(np.array(mcolors.to_rgb(ACC)) * 0.7)
+    MONO = "monospace" if lang == "en" else None
+    fig = plt.figure(figsize=L["figsize"], dpi=120)
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ax.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor=BG, zorder=0))
+
+    px0, px1 = 0.24, 0.76
+    pcx = (px0 + px1) / 2
+    ptop, pbot = 0.92, 0.255
+    ax.add_patch(plt.Rectangle((px0, pbot), px1 - px0, ptop - pbot, facecolor=PAPER,
+                 zorder=2))
+    # torn zigzag edges (BG-coloured teeth biting into the paper)
+    teeth = 13; tw = (px1 - px0) / teeth
+    for k in range(teeth):
+        xx = px0 + k * tw
+        ax.add_patch(plt.Polygon([[xx, ptop], [xx + tw, ptop], [xx + tw / 2, ptop - 0.012]],
+                     closed=True, facecolor=BG, zorder=3, edgecolor="none"))
+        ax.add_patch(plt.Polygon([[xx, pbot], [xx + tw, pbot], [xx + tw / 2, pbot + 0.012]],
+                     closed=True, facecolor=BG, zorder=3, edgecolor="none"))
+
+    def C(y, s, sz, c=INK, w="normal"):
+        ax.text(pcx, y, s, fontsize=sz, color=c, ha="center", va="center",
+                family=MONO, weight=w, zorder=5)
+
+    def LR(y, l, r, sz=13, c=INK, w="normal"):
+        ax.text(px0 + 0.022, y, l, fontsize=sz, color=c, ha="left", va="center",
+                family=MONO, weight=w, zorder=5)
+        ax.text(px1 - 0.022, y, r, fontsize=sz, color=c, ha="right", va="center",
+                family=MONO, weight=w, zorder=5)
+
+    def dash(y, ch="-"):
+        C(y, ch * 30, 12, DIM)
+
+    C(0.885, f"★  CLAUDE CODE  ★", 16, ACC, w="bold")
+    C(0.86, S["receipt"], 12.5, DIM, w="bold")
+    dash(0.838)
+    C(0.818, f"{m['rng']['start']}  -  {m['rng']['end']}", 12, INK)
+    dash(0.798)
+    LR(0.778, S["r_item"], S["r_amt"], 11.5, DIM, w="bold")
+
+    items = [(S["t_total"] + " tokens" if lang == "en" else "总 token", fmt_tok(m["TOTAL"])),
+             (S["t_out"] + " tokens" if lang == "en" else "输出 token", fmt_tok(m["tot"]["outputTokens"])),
+             (S["t_cache"] + " read" if lang == "en" else "缓存读取", fmt_tok(m["tot"]["cacheReadTokens"])),
+             (S["d_active"], str(m["NDAYS"])),
+             (S["d_streak"], S["d_streak_u"].format(v=m["streak"]))]
+    y = 0.752
+    for l, r in items:
+        LR(y, l, r, 13); y -= 0.026
+    dash(y + 0.004); y -= 0.022
+    for name, c in list(m["mc"].items())[:4]:
+        LR(y, short_model(name), f"${c:,.2f}", 13); y -= 0.026
+    C(y + 0.003, "=" * 30, 12, INK); y -= 0.03
+    LR(y, "TOTAL", f"${m['COST']:,.2f}", 18, INK, w="bold"); y -= 0.03
+    C(y + 0.006, "=" * 30, 12, INK); y -= 0.03
+
+    if fun:
+        C(y, f"≈ {fmt_count(m['coffees'])} lattes  &  "
+             f"{fmt_count(m['novels'])} novels" if lang == "en"
+             else f"≈ {fmt_count(m['coffees'])} 杯咖啡 & {fmt_count(m['novels'])} 本小说",
+          12, DIM); y -= 0.03
+
+    # barcode from daily tokens (deterministic)
+    toks = m["toks"]; mx = max(toks) if toks else 1
+    bx = px0 + 0.03; bar_top = y - 0.005; bar_h = 0.045; i = 0
+    while bx < px1 - 0.03:
+        t = toks[i % len(toks)] if toks else 0
+        w = 0.0035 + 0.006 * (t / mx if mx else 0)
+        ax.add_patch(plt.Rectangle((bx, bar_top - bar_h), w * 0.6, bar_h,
+                     facecolor=INK, zorder=5, edgecolor="none"))
+        bx += w; i += 1
+    C(bar_top - bar_h - 0.022, "*" + "".join(str((d * 7) % 10) for d in range(12)) + "*",
+      11, DIM)
+    C(bar_top - bar_h - 0.06, S["r_thanks"], 12.5, ACC, w="bold")
+
+    fig.savefig(f"{out}.png", dpi=200, facecolor=BG)
+    fig.savefig(f"{out}.pdf", facecolor=BG)
+    plt.close(fig)
+    print(f"poster[receipt] -> {out}.png")
 
 
 # ---- poster --------------------------------------------------------------
@@ -538,6 +1037,10 @@ def main():
     ap.add_argument("--what", default="both", choices=["both", "poster", "dashboard"])
     ap.add_argument("--lang", default="en", choices=["en", "zh"])
     ap.add_argument("--style", default="cyber_purple")
+    ap.add_argument("--template", default="wrapped",
+                    choices=["wrapped", "minimal", "business", "playful",
+                             "terminal", "receipt"],
+                    help="poster layout language (orthogonal to --style colors)")
     ap.add_argument("--size", default="poster", choices=["poster", "story", "square"])
     ap.add_argument("--font", default=None, help="preferred font family for all text")
     ap.add_argument("--no-fun", action="store_true")
@@ -572,9 +1075,16 @@ def main():
     fun = not a.no_fun
     os.makedirs(a.out_dir, exist_ok=True)
 
+    TEMPLATES = {"minimal": tpl_minimal, "business": tpl_business,
+                 "playful": tpl_playful, "terminal": tpl_terminal,
+                 "receipt": tpl_receipt}
     if a.what in ("both", "poster"):
-        render_poster(data, st, S, a.lang, L, title, sub, fun, a.coffee_price,
-                      os.path.join(a.out_dir, "token_wrapped"))
+        out = os.path.join(a.out_dir, "token_wrapped")
+        if a.template == "wrapped":
+            render_poster(data, st, S, a.lang, L, title, sub, fun, a.coffee_price, out)
+        else:
+            m = derive(data, a.coffee_price)
+            TEMPLATES[a.template](data, st, S, a.lang, L, m, title, sub, fun, out)
     if a.what in ("both", "dashboard"):
         render_dashboard(data, st, S, L, a.title or S["d_title"],
                          os.path.join(a.out_dir, "token_dashboard"))
