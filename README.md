@@ -16,11 +16,21 @@ merges multiple machines, and renders:
 
 Both also export `.pdf` (vector).
 
-<p align="center">
-  <img src="samples/poster_cyber_purple.png" width="32%" alt="cyber_purple poster"/>
-  <img src="samples/poster_neon_night.png" width="32%" alt="neon_night poster"/>
-  <img src="samples/poster_cyber_green.png" width="32%" alt="cyber_green poster"/>
-</p>
+### Poster templates
+
+Six distinct **layout languages** (`--template`) — not just recolours: each has its own
+typography, elements and content. Orthogonal to the 8 colour `--style` presets.
+
+| `wrapped` | `minimal` | `business` |
+|:--:|:--:|:--:|
+| <img src="samples/tpl_wrapped.png" width="240"/> | <img src="samples/tpl_minimal.png" width="240"/> | <img src="samples/tpl_business.png" width="240"/> |
+| Spotify-Wrapped hero | Swiss / editorial | Exec one-pager |
+| **`playful`** | **`terminal`** | **`receipt`** |
+| <img src="samples/tpl_playful.png" width="240"/> | <img src="samples/tpl_terminal.png" width="240"/> | <img src="samples/tpl_receipt.png" width="240"/> |
+| Sticker + archetype | CRT readout | Printed till receipt |
+
+Same template, different `--style` / `--size` / `--lang`:
+
 <p align="center">
   <img src="samples/poster_story_sunset.png" width="24%" alt="story / sunset"/>
   <img src="samples/poster_square_graphite.png" width="31%" alt="square / graphite"/>
@@ -37,12 +47,13 @@ Copy this folder into `~/.claude/skills/token-wrapped/`, then just ask Claude Co
 
 ```
 /token-wrapped last 7 days, cyber green style
-/token-wrapped this month, story size for instagram
-/token-wrapped all time --no-fun
-/token-wrapped 本月，赛博紫风格，中文
+/token-wrapped this month, business template for my report
+/token-wrapped all time, terminal style
+/token-wrapped 本月，小票风格，中文
 ```
 
-Claude resolves the date range, picks the flags, runs the scripts, and shows you the images.
+Claude resolves the date range, picks the template + flags, runs the scripts, and shows
+you the images.
 
 ## Quick start (as CLI)
 
@@ -65,6 +76,7 @@ python $SKILL/render.py  --data merged_usage.json --lang en --style cyber_purple
 
 | | |
 |---|---|
+| **6 poster templates** | `--template wrapped\|minimal\|business\|playful\|terminal\|receipt` — distinct layouts, not recolours |
 | **Any date range** | `--start/--end`, or omit for all-time |
 | **Multi-machine** | drop other machines' `ccusage` JSON into `~/.claude/ccusage_extra/`; auto-merged per day & per model |
 | **Bilingual** | `--lang en` (default) or `--lang zh` — copy and number units adapt (B/M vs 亿) |
@@ -189,12 +201,18 @@ python render.py --data samples/sample_usage.json --style cyber_purple --out-dir
 
 ```
 /token-wrapped 最近7天，赛博绿风格
-/token-wrapped 本月，story 尺寸发朋友圈
-/token-wrapped 全部时间 --no-fun
-/token-wrapped this month, cyber purple, in chinese
+/token-wrapped 本月，商务模板做汇报
+/token-wrapped 全部时间，终端风格
+/token-wrapped this month, receipt template, in chinese
 ```
 
-Claude 会自动解析日期范围、挑选参数、运行脚本并把图给你。
+Claude 会自动解析日期范围、挑选模板和参数、运行脚本并把图给你。
+
+### 海报模板
+
+六套**版式语言**(`--template`),不是换色——各有独立的排版、元素和内容,与 8 套配色 `--style` 正交:
+`wrapped`(Spotify-Wrapped 巨数)· `minimal`(瑞士编辑风)· `business`(商务周报卡)·
+`playful`(贴纸+开发者人格)· `terminal`(CRT 终端)· `receipt`(打印小票)。
 
 ### 快速开始(作为 CLI)
 
@@ -215,6 +233,7 @@ python $SKILL/render.py  --data merged_usage.json --lang zh --style cyber_purple
 
 | | |
 |---|---|
+| **6 套海报模板** | `--template wrapped\|minimal\|business\|playful\|terminal\|receipt` —— 版式截然不同,非换色 |
 | **任意日期区间** | `--start/--end`,不填则为全部时间 |
 | **多机合并** | 把其它机器的 `ccusage` JSON 丢进 `~/.claude/ccusage_extra/`,按天、按模型自动合并 |
 | **中英双语** | `--lang en`(默认)或 `--lang zh` —— 文案与数字单位自适应(B/M vs 亿) |

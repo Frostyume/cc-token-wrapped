@@ -21,7 +21,15 @@ Resolve `--start` / `--end` (`YYYY-MM-DD`) relative to **today**:
 - "5-14 to 6-24" → explicit start/end
 Use the current year when unspecified. Ask if genuinely ambiguous.
 
-### 2. Pick language, style & size
+### 2. Pick template, language, style & size
+- `--template` (poster layout language, orthogonal to colour):
+  `wrapped` (default, Spotify-Wrapped hero) · `minimal` (Swiss/editorial) ·
+  `business` (exec one-pager: KPI cards + spend chart + model table) ·
+  `playful` (sticker vibe + developer archetype + speech bubble) ·
+  `terminal` (CRT readout: monospace, scanlines, ASCII charts) ·
+  `receipt` (printed till receipt with barcode). Pick from the user's words:
+  "business/report/clean" → business, "fun/cute" → playful, "minimal/simple" →
+  minimal, "terminal/geek/retro" → terminal, "receipt" → receipt.
 - `--lang en|zh` (default `en`). Numbers and copy adapt (B/M vs 亿).
 - Presets `--style`: `cyber_purple` (default) · `neon_night` · `blue_gold` ·
   `cyber_green` · `minimal_white` · `sunset` · `graphite` · `sakura`.
@@ -46,9 +54,13 @@ SKILL="$HOME/.claude/skills/token-wrapped"
 PY=python3   # any interpreter with matplotlib
 
 $PY "$SKILL/collect.py" --start 2026-06-18 --end 2026-06-24 --out merged_usage.json
-$PY "$SKILL/render.py"  --data merged_usage.json --lang en --style cyber_purple \
-                        --size poster --out-dir .
+$PY "$SKILL/render.py"  --data merged_usage.json --template wrapped --lang en \
+                        --style cyber_purple --size poster --out-dir .
 ```
+
+`--template` only changes the poster; the dashboard (`--what dashboard`) is the
+same multi-panel chart regardless. `--size` is tuned for `wrapped`; other templates
+render at their own native portrait aspect.
 
 - `collect.py` merges this machine + `--extra-dir`, clips to the range, writes
   `merged_usage.json` (`range/sources/daily/totals`) and prints a summary.
